@@ -1,0 +1,18 @@
+# Build artifacts
+sdk/
+build/
+*.zip
+*.tar
+out/
+
+# Editor/config noise
+.idea/
+.vscode/
+*.iml
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Keep OpenCodeBridge.apk committed on purpose: it is the ready-to-install
+# artifact referenced by INSTALL.md (debug-signed).

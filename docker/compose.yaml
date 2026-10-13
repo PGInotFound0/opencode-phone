@@ -1,0 +1,23 @@
+services:
+  opencode:
+    build: .
+    image: opencode-serve:latest
+    container_name: opencode-serve
+    restart: unless-stopped
+    ports:
+      - "4096:4096"
+    working_dir: /workspace
+    volumes:
+      - ./workspace:/workspace            # put (or symlink) your project files here
+      - oc-config:/root/.config/opencode  # opencode.json config
+      - oc-data:/root/.local/share/opencode # auth.json, caches, plugins
+    environment:
+      # set in a .env file next to this compose file, e.g. OPENCODE_SERVER_PASSWORD=choose-one
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:-}
+      # provider keys can also be passed through env, e.g.
+      # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+volumes:
+  oc-config:
+  oc-data:
