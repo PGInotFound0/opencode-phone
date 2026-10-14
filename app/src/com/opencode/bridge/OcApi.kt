@@ -145,6 +145,12 @@ open class OcApi(baseUrlRaw: String, private val username: String, private val p
         http("/session/${enc(sid)}/abort", "POST", "{}")
     }
 
+    /** Types text into the opencode TUI window attached to this server and submits it. */
+    fun tuiPrompt(text: String) {
+        http("/tui/append-prompt", "POST", JSONObject().put("text", text).toString())
+        http("/tui/submit-prompt", "POST", "{}")
+    }
+
     fun permit(sid: String, rid: String, reply: String) {
         http("/api/session/${enc(sid)}/permission/${enc(rid)}/reply", "POST", JSONObject().put("reply", reply).toString())
     }

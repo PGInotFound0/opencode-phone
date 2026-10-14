@@ -12,6 +12,7 @@ data class Machine(
     val user: String,
     val pass: String,
     val enabled: Boolean,
+    val tui: Boolean = false,
 )
 
 object Prefs {
@@ -44,6 +45,7 @@ object Prefs {
                             user = o.optString("user", "opencode"),
                             pass = o.optString("pass", ""),
                             enabled = o.optBoolean("enabled", true),
+                            tui = o.optBoolean("tui", false),
                         ),
                     )
                 }
@@ -70,7 +72,8 @@ object Prefs {
                     .put("url", m.url)
                     .put("user", m.user)
                     .put("pass", m.pass)
-                    .put("enabled", m.enabled),
+                    .put("enabled", m.enabled)
+                    .put("tui", m.tui),
             )
         }
         sp(c).edit().putString("machines", arr.toString()).apply()

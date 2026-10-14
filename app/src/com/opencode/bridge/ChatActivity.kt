@@ -22,6 +22,7 @@ class ChatActivity : Activity() {
     private var mid = ""
     private var machineName = ""
     private var sid = ""
+    private var tuiMode = false
 
     @Volatile private var alive = false
 
@@ -42,7 +43,10 @@ class ChatActivity : Activity() {
         sid = intent.getStringExtra("sid") ?: ""
 
         val m = Prefs.machines(this).find { it.id == mid }
-        if (m != null) api = OcApi(m.url, m.user, m.pass)
+        if (m != null) {
+            api = OcApi(m.url, m.user, m.pass)
+            tuiMode = m.tui
+        }
 
         listView = findViewById(R.id.chat_msgs)
         listView.adapter = adapter
@@ -52,7 +56,8 @@ class ChatActivity : Activity() {
 
         findViewById<TextView>(R.id.chat_title).text =
             (intent.getStringExtra("title") ?: "Session").ifBlank { "Session" }
-        findViewById<TextView>(R.id.chat_machine).text = machineName
+        findViewById<TextView>(R.id.chat_machine).text =
+            machineName + if (tuiMode) " · sends go to the live opencode window" else ""
 
         findViewById<Button>(R.id.chat_abort).setOnClickListener {
             val a = api ?: return@setOnClickListener
@@ -76,14 +81,15 @@ class ChatActivity : Activity() {
             Thread {
                 var ok = false
                 val err = try {
-                    a.prompt(sid, text); ok = true; ""
+                    if (tuiMode) a.tuiPrompt(text) else a.prompt(sid, text)
+                    ok = true; ""
                 } catch (e: Exception) {
                     e.message?.take(120) ?: "failed"
                 }
                 runOnUiThread {
                     if (ok) {
                         input.setText("")
-                        toast("Sent")
+                        toast(if (tuiMode) "Typed into the live window" else "Sent")
                     } else {
                         toast("Failed: $err")
                     }

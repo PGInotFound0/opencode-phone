@@ -35,11 +35,22 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var hintView: TextView
     private lateinit var machineBox: LinearLayout
+    private lateinit var quickBox: LinearLayout
+    private lateinit var quickInput: EditText
+    private lateinit var quickSend: Button
     private lateinit var sessionsBox: LinearLayout
     private lateinit var pendingBox: LinearLayout
 
+    @Volatile private var eventsHeard = 0L
+    @Volatile private var lastEvent = ""
+
     private val uiRcv = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
+            val t = i.getStringExtra("t")
+            if (!t.isNullOrEmpty()) {
+                eventsHeard++
+                lastEvent = t
+            }
             refresh(false)
         }
     }
@@ -68,6 +79,9 @@ class MainActivity : Activity() {
         keepView = findViewById(R.id.keep_view)
         autoView = findViewById(R.id.auto_view)
         machineBox = findViewById(R.id.machine_box)
+        quickBox = findViewById(R.id.quick_box)
+        quickInput = findViewById(R.id.quick_input)
+        quickSend = findViewById(R.id.quick_send)
         sessionsBox = findViewById(R.id.sessions_box)
         pendingBox = findViewById(R.id.pending_box)
 
@@ -120,6 +134,35 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.add_machine_view).setOnClickListener {
             machineDialog(null)
+        }
+
+        quickSend.setOnClickListener {
+            val m = Prefs.machines(this).find { it.enabled && it.tui && it.url.isNotBlank() }
+            if (m == null) {
+                toast("Enable a machine marked “live window” first")
+                return@setOnClickListener
+            }
+            val text = quickInput.text.toString().trim()
+            if (text.isEmpty()) return@setOnClickListener
+            quickSend.isEnabled = false
+            Thread {
+                var ok = false
+                val err = try {
+                    OcApi(m.url, m.user, m.pass).tuiPrompt(text)
+                    ok = true; ""
+                } catch (e: Exception) {
+                    e.message?.take(120) ?: "failed"
+                }
+                runOnUiThread {
+                    if (ok) {
+                        quickInput.setText("")
+                        toast("Typed into “${m.name}”")
+                    } else {
+                        toast("Failed: $err")
+                    }
+                    quickSend.isEnabled = true
+                }
+            }.start()
         }
 
         findViewById<Button>(R.id.test_view).setOnClickListener {
@@ -182,7 +225,9 @@ class MainActivity : Activity() {
 
     private fun refresh(force: Boolean) {
         val svc = SseService.instance
-        statusView.text = if (svc == null) "Bridge stopped — tap “Save & connect”" else svc.statusText()
+        var status = if (svc == null) "Bridge stopped — tap “Save & connect”" else svc.statusText()
+        if (eventsHeard > 0) status += "  ·  ${eventsHeard} events (last: ${lastEvent.take(24)})"
+        statusView.text = status
         statusView.setTextColor(
             when {
                 svc == null -> 0xFFF5F5F6.toInt()
@@ -193,6 +238,7 @@ class MainActivity : Activity() {
         )
         hintView.text = "Primary: ${Prefs.serverUrl(this).ifBlank { "not set" }}"
         renderMachines()
+        quickBox.visibility = if (Prefs.machines(this).any { it.enabled && it.tui }) View.VISIBLE else View.GONE
         renderPending()
         fetchSessions(force)
     }
@@ -298,11 +344,13 @@ class MainActivity : Activity() {
         val user = EditText(this)
         val pass = EditText(this)
         val en = CheckBox(this)
+        val tui = CheckBox(this)
         name.hint = "Name (e.g. Homelab)"
         url.hint = "http://192.168.1.20:4096"
         user.hint = "user (opencode)"
         pass.hint = "password (optional)"
         en.text = "Connected"
+        tui.text = "Prompts go to the live opencode window (TUI)"
         pass.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
@@ -314,6 +362,7 @@ class MainActivity : Activity() {
             col.addView(w, LinearLayout.LayoutParams(-1, -2).apply { topMargin = pad })
         }
         col.addView(en)
+        col.addView(tui)
         existing.let { m ->
             if (m != null) {
                 name.setText(m.name)
@@ -321,8 +370,10 @@ class MainActivity : Activity() {
                 user.setText(m.user)
                 pass.setText(m.pass)
                 en.isChecked = m.enabled
+                tui.isChecked = m.tui
             } else {
                 en.isChecked = true
+                tui.isChecked = false
             }
         }
         AlertDialog.Builder(this)
@@ -343,6 +394,7 @@ class MainActivity : Activity() {
                     user = user.text.toString().trim().ifBlank { "opencode" },
                     pass = pass.text.toString(),
                     enabled = en.isChecked && uu.isNotBlank(),
+                    tui = tui.isChecked,
                 )
                 if (existing != null) {
                     val i = list.indexOfFirst { it.id == existing.id }

@@ -110,7 +110,7 @@ class SseService : Service() {
         updateStatusNotification()
     }
 
-    private fun uiRefresh() = sendBroadcast(Intent(ACTION_UI).setPackage(packageName))
+    private fun uiRefresh(evt: String = "") = sendBroadcast(Intent(ACTION_UI).setPackage(packageName).putExtra("t", evt))
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -445,7 +445,7 @@ class SseService : Service() {
         when {
             type == "server.connected" -> {
                 cacheTitles(m)
-                uiRefresh()
+                uiRefresh(type)
             }
             type == "session.created" || type == "session.updated" -> {
                 val sid = props.optString("id")
@@ -453,10 +453,10 @@ class SseService : Service() {
                 if (sid.isNotEmpty() && t.isNotEmpty()) {
                     synchronized(lock) { titles["${m.id}|$sid"] = t }
                 }
-                uiRefresh()
+                uiRefresh(type)
             }
             type == "session.deleted" -> {
-                uiRefresh()
+                uiRefresh(type)
             }
             type == "session.idle" -> {
                 val sid = props.optString("sessionID")
@@ -479,7 +479,7 @@ class SseService : Service() {
                         ((sid.hashCode() and 0x3FF) + 5000),
                         Notifications.buildFinished(this@SseService, "${m.name} · $title", text),
                     )
-                    uiRefresh()
+                    uiRefresh(type)
                 }.start()
             }
             type == "session.error" -> {
